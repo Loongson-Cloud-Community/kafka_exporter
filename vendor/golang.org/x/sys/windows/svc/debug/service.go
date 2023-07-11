@@ -2,10 +2,10 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build windows
 // +build windows
 
 // Package debug provides facilities to execute svc.Handler on console.
-//
 package debug
 
 import (
@@ -23,7 +23,7 @@ func Run(name string, handler svc.Handler) error {
 	cmds := make(chan svc.ChangeRequest)
 	changes := make(chan svc.Status)
 
-	sig := make(chan os.Signal)
+	sig := make(chan os.Signal, 1)
 	signal.Notify(sig)
 
 	go func() {
@@ -31,7 +31,7 @@ func Run(name string, handler svc.Handler) error {
 		for {
 			select {
 			case <-sig:
-				cmds <- svc.ChangeRequest{svc.Stop, 0, 0, status}
+				cmds <- svc.ChangeRequest{Cmd: svc.Stop, CurrentStatus: status}
 			case status = <-changes:
 			}
 		}

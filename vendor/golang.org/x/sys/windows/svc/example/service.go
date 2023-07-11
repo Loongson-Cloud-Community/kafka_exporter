@@ -2,12 +2,14 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build windows
 // +build windows
 
 package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"golang.org/x/sys/windows/svc"
@@ -17,9 +19,9 @@ import (
 
 var elog debug.Log
 
-type myservice struct{}
+type exampleService struct{}
 
-func (m *myservice) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
+func (m *exampleService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue
 	changes <- svc.Status{State: svc.StartPending}
 	fasttick := time.Tick(500 * time.Millisecond)
@@ -40,6 +42,10 @@ loop:
 				time.Sleep(100 * time.Millisecond)
 				changes <- c.CurrentStatus
 			case svc.Stop, svc.Shutdown:
+				// golang.org/x/sys/windows/svc.TestExample is verifying this output.
+				testOutput := strings.Join(args, "-")
+				testOutput += fmt.Sprintf("-%d", c.Context)
+				elog.Info(1, testOutput)
 				break loop
 			case svc.Pause:
 				changes <- svc.Status{State: svc.Paused, Accepts: cmdsAccepted}
@@ -73,7 +79,7 @@ func runService(name string, isDebug bool) {
 	if isDebug {
 		run = debug.Run
 	}
-	err = run(name, &myservice{})
+	err = run(name, &exampleService{})
 	if err != nil {
 		elog.Error(1, fmt.Sprintf("%s service failed: %v", name, err))
 		return
